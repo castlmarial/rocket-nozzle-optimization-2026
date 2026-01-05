@@ -5,7 +5,7 @@ A comprehensive simulation tool for optimizing the design and predicting the fli
 Installation & Usage
 1. Clone the Repository: git clone https://github.com/your-username/rocket-sim-2026.git
 2. cd rocket-sim-2026
-3. Install DependenciesBashpip install -r requirements.txt
+3. Install Dependencies: pip install -r requirements.txt
 4. Run the Application: streamlit run guiapp.py
    
 The simulator will launch automatically in your default web browser.
