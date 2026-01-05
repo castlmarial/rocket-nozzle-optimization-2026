@@ -6,7 +6,7 @@ Installation & Usage
 1. Clone the Repository: git clone https://github.com/your-username/rocket-sim-2026.git
 2. cd rocket-sim-2026
 3. Install DependenciesBashpip install -r requirements.txt
-4. Run the ApplicationBashstreamlit run guiapp.py
+4. Run the Application: streamlit run guiapp.py
    
 The simulator will launch automatically in your default web browser.
 📂 File Structure📦 rocket-sim-2026
