@@ -7,6 +7,7 @@ Installation & Usage
 2. cd rocket-sim-2026
 3. Install Dependencies: pip install -r requirements.txt
 4. Run the Application: streamlit run guiapp.py
+5. Otherwise you can access via Streamlit Cloud (https://rocket-nozzle-optimization-2026-kvkgsfa3gmgqz3uyopn9bs.streamlit.app/)
    
 The simulator will launch automatically in your default web browser.
 📂 File Structure📦 rocket-sim-2026
@@ -14,6 +15,7 @@ The simulator will launch automatically in your default web browser.
  ┣ 📜 flight_sim.py      # [Physics] RK45-based rocket EOM solver
  ┣ 📜 main.py            # [Logic] Thrust optimization algorithm for target altitude
  ┣ 📜 rocket_utils.py    # [Math] Modules for ISA atmosphere, nozzle calc, and Mach number
+ ┣ 📜 grain_desgin.py    # [Math] Grain design optimization
  ┗ 📜 requirements.txt   # List of required libraries
 
 Developer: PARK SEONGJAE RocketDan2026 Engine Team LeaderGitHub: @castl_marial
