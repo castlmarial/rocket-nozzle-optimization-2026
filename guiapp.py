@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from flight_sim import simulate_flight
 from main import optimize_rocket_design
+from main import optimize_rocket_design
+from grain_design import calculate_grain_geometry
 
 # --- Streamlit App UI ---
 
@@ -29,6 +31,10 @@ with st.sidebar:
     epsilon = st.number_input("Nozzle Expansion Ratio (ε)", value=7.414, format="%.3f")
     P0 = st.number_input("Max Chamber Pressure (Pa)", value=3_000_000, step=100_000, format="%d")
     P_percentage = st.number_input("Average to Max Pressure Ratio (%)", value=61.5, step=0.1, format="%.1f") / 100.0
+
+    st.subheader("Grain Geometry Inputs")
+    D_chamber_in = st.number_input("Chamber Inner Diameter (mm)", value=54.0, format="%.1f")
+    t_liner_in = st.number_input("Liner/Tube Thickness (mm)", value=2.0, format="%.1f")
 
     st.markdown("---")
     run_button = st.button("Run Simulation", use_container_width=True)
@@ -57,6 +63,16 @@ if run_button:
         P_avg = P0 * P_percentage
         m_dot = mp / tb
         I_sp = F_avg / (m_dot * 9.81)
+        At = results["At"]
+        grain_res = calculate_grain_geometry(
+            grain_type="BATES",
+            D_chamber_mm=D_chamber_in,
+            t_liner_mm=t_liner_in,
+            m_prop=mp,
+            At=At,
+            tb=tb,
+            P_avg_pa=P0*P_percentage
+        )
 
         # --- Display Results ---
         st.header("Simulation Results")
@@ -71,7 +87,7 @@ if run_button:
         # 1. altitude graph (left)
         ax1.plot(t_sim, y_sim[0], label='Altitude', color='dodgerblue')
         ax1.axhline(h_max, ls='--', color='gray', label=f'Apogee: {h_max:.1f} m')
-        ax1.set_xlabel('Time (s)') # 가로 배치이므로 양쪽에 x축 라벨이 필요함
+        ax1.set_xlabel('Time (s)') 
         ax1.set_ylabel('Altitude (m)')
         ax1.set_title('Altitude Profile')
         ax1.grid(True)
@@ -105,6 +121,38 @@ if run_button:
         col_b.markdown(f"**Mass Flow Rate:** `{m_dot:.3f} kg/s`")
         col_b.markdown(f"**Nozzle Throat Diameter:** `{dt*1000:.2f} mm`")
         col_b.markdown(f"**Nozzle Exit Diameter:** `{de*1000:.2f} mm`")
+
+        # --- Grain Geometry Results ---
+        st.markdown("---")
+        st.subheader("Grain Geometry Design")
+        
+        if "error" in grain_res:
+            st.error(grain_res["error"])
+        else:
+            g_col1, g_col2, g_col3, g_col4 = st.columns(4)
+            
+            g_col1.metric("Grain Type", grain_res['Grain_Type'])
+            g_col1.markdown(f"*{grain_res['Grain_Type']}*")
+
+            g_col2.metric("Grain Outer Diameter", f"{grain_res['D_grain_mm']:.1f} mm")
+            g_col2.markdown(f"*(Chamber {D_chamber_in}mm - 2x{t_liner_in}mm)*")
+            
+            g_col3.metric("Core Diameter", f"{grain_res['d_core_mm']:.1f} mm")
+            g_col3.markdown(f"*Port Ratio: {grain_res['Port_Ratio']:.2f}*")
+            
+            g_col4.metric("Total Grain Length", f"{grain_res['L_grain_mm']:.1f} mm")
+            g_col4.markdown(f"*L/D Ratio: {grain_res['L_over_D']:.2f}*")
+            
+            # errors/warnings
+            st.info(f"Calculated Burn Rate: **{grain_res['r_mm_s']:.2f} mm/s** (@ {P0*P_percentage/1e6:.1f} MPa)")
+            
+            if grain_res['is_erosive_risk']:
+                st.warning("High L/D Ratio (>6). Port Ratio has been increased to >3.0 to minimize erosive burning risks.")
+            
+            st.markdown(f"""
+            > **Design Check:**
+            > Required Burning Area ($A_b$): `{grain_res['Ab_req_m2']*10000:.2f} cm²`
+            """)
 
     except Exception as e:
         st.error(f"An error occurred during calculation or simulation: {e}")
