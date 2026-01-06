@@ -3,8 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from flight_sim import simulate_flight
 from main import optimize_rocket_design
-from main import optimize_rocket_design
-from grain_design import calculate_grain_geometry
+from grain_design import calculate_grain_geometry, plot_grain_geometry
 
 # --- Streamlit App UI ---
 
@@ -37,7 +36,7 @@ with st.sidebar:
     t_liner_in = st.number_input("Liner/Tube Thickness (mm)", value=2.0, format="%.1f")
 
     st.markdown("---")
-    run_button = st.button("Run Simulation", use_container_width=True)
+    run_button = st.button("Run Simulation", use_container_width=True, type="primary")
 
 # --- Main Panel for Results ---
 
@@ -56,6 +55,12 @@ if run_button:
         
         # Run flight simulation for plotting (using the optimized thrust)
         t_sim, y_sim = simulate_flight(F_avg, tb, m0, mp, CD_A)
+        # Time to apogee
+        if len(t_sim) > 0:
+            idx_ap = int(np.nanargmax(y_sim[0]))
+            t_apogee = float(t_sim[idx_ap])
+        else:
+            t_apogee = 0.0
         
         # Recalculate other metrics for display
         v_max = np.max(y_sim[1])
@@ -78,29 +83,56 @@ if run_button:
         st.header("Simulation Results")
         col1, col2, col3 = st.columns(3)
         col1.metric("Predicted Apogee", f"{h_max:.1f} m", f"{apogee_error:+.1f} m vs Target")
+        col1.markdown(f"**Time to Apogee:** `{t_apogee:.2f} s`")
         col2.metric("Max Velocity", f"{v_max:.1f} m/s")
         col3.metric("Average Thrust", f"{F_avg:.1f} N")
 
-        # --- Plotting ---
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
-        
-        # 1. altitude graph (left)
-        ax1.plot(t_sim, y_sim[0], label='Altitude', color='dodgerblue')
-        ax1.axhline(h_max, ls='--', color='gray', label=f'Apogee: {h_max:.1f} m')
-        ax1.set_xlabel('Time (s)') 
-        ax1.set_ylabel('Altitude (m)')
-        ax1.set_title('Altitude Profile')
-        ax1.grid(True)
-        ax1.legend()
+        # --- Plotting (2x2): Altitude, Velocity, mdot, Drag ---
+        from rocket_utils import isa_atmosphere
 
-        # 2. velocity graph (right)
-        ax2.plot(t_sim, y_sim[1], label='Velocity', color='orangered')
-        ax2.set_xlabel('Time (s)')
-        ax2.set_ylabel('Velocity (m/s)')
-        ax2.set_title('Velocity Profile')
-        ax2.grid(True)
-        ax2.legend()
-        
+        fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+        ax_alt = axes[0, 0]
+        ax_vel = axes[0, 1]
+        ax_mdot = axes[1, 0]
+        ax_drag = axes[1, 1]
+
+        # Altitude
+        ax_alt.plot(t_sim, y_sim[0], label='Altitude', color='dodgerblue')
+        ax_alt.axhline(h_max, ls='--', color='gray', label=f'Apogee: {h_max:.1f} m')
+        ax_alt.set_xlabel('Time (s)')
+        ax_alt.set_ylabel('Altitude (m)')
+        ax_alt.set_title('Altitude Profile')
+        ax_alt.grid(True)
+        ax_alt.legend()
+
+        # Velocity
+        ax_vel.plot(t_sim, y_sim[1], label='Velocity', color='orangered')
+        ax_vel.set_xlabel('Time (s)')
+        ax_vel.set_ylabel('Velocity (m/s)')
+        ax_vel.set_title('Velocity Profile')
+        ax_vel.grid(True)
+        ax_vel.legend()
+
+        # Mass flow rate (mdot) over time
+        mdot_array = np.where(t_sim <= tb, mp / tb, 0.0)
+        ax_mdot.plot(t_sim, mdot_array, label='mdot', color='seagreen')
+        ax_mdot.set_xlabel('Time (s)')
+        ax_mdot.set_ylabel('Mass Flow (kg/s)')
+        ax_mdot.set_title('Mass Flow Rate (mdot)')
+        ax_mdot.grid(True)
+
+        # Drag force over time (magnitude)
+        h_array = y_sim[0]
+        v_array = y_sim[1]
+        rho_list = [isa_atmosphere(max(0.0, float(h)))[0] for h in h_array]
+        rho_arr = np.array(rho_list)
+        drag_array = 0.5 * rho_arr * CD_A * (v_array ** 2)  # magnitude
+        ax_drag.plot(t_sim, drag_array, label='Drag', color='purple')
+        ax_drag.set_xlabel('Time (s)')
+        ax_drag.set_ylabel('Drag Force (N)')
+        ax_drag.set_title('Drag Force vs Time')
+        ax_drag.grid(True)
+
         plt.tight_layout()
         st.pyplot(fig)
 
@@ -135,7 +167,7 @@ if run_button:
             g_col1.markdown(f"*{grain_res['Grain_Type']}*")
 
             g_col2.metric("Grain Outer Diameter", f"{grain_res['D_grain_mm']:.1f} mm")
-            g_col2.markdown(f"*(Chamber {D_chamber_in}mm - 2x{t_liner_in}mm)*")
+            g_col2.markdown(f"*Liner Thickness: {t_liner_in}mm*")
             
             g_col3.metric("Core Diameter", f"{grain_res['d_core_mm']:.1f} mm")
             g_col3.markdown(f"*Port Ratio: {grain_res['Port_Ratio']:.2f}*")
@@ -151,8 +183,17 @@ if run_button:
             
             st.markdown(f"""
             > **Design Check:**
-            > Required Burning Area ($A_b$): `{grain_res['Ab_req_m2']*10000:.2f} cm²`
+            > Required Burning Area ($A_b$): `{grain_res['Ab_req_m2']*10000*100:.2f} mm²`
             """)
+
+            # --- Grain Geometry Plot ---
+            try:
+                fig_grain = plot_grain_geometry(grain_res)
+                col_plot, col_spacer = st.columns([2, 1])
+                with col_plot:
+                    st.pyplot(fig_grain)
+            except Exception as e:
+                st.warning(f"Could not render grain geometry plot: {e}")
 
     except Exception as e:
         st.error(f"An error occurred during calculation or simulation: {e}")
