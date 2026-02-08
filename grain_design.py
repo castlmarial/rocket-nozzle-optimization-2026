@@ -2,49 +2,40 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-# --- KNSB Propellant Properties (Typical Values) ---
-KNSB_PROPS = {
-    'density': 1841.0,      # [kg/m^3] 밀도
-    'c_star': 895.0,        # [m/s] 특성배기속도
-    'a': 8.26e-3,           # [m/s per MPa^n] 연소속도 계수
-    'n': 0.319              # [] 연소속도 지수
-}
-
-# [수정됨] grain_type="BATES" 인자 추가 (에러 해결 핵심)
-def calculate_grain_geometry(D_chamber_mm, t_liner_mm, m_prop, At, tb, P_avg_pa, grain_type="BATES"):
+def calculate_grain_geometry(D_chamber_mm, t_liner_mm, m_prop, At, tb, P_avg_pa, prop_density, c_star, a=8.26e-3, n=0.319, grain_type="BATES"):
     """
     그레인 형상을 설계하고 계산 결과를 반환하는 함수
+    prop_density [kg/m^3], c_star [m/s] 인자를 추가함
     """
     D_chamber = D_chamber_mm / 1000.0
     t_liner = t_liner_mm / 1000.0
     
     mdot = m_prop / tb
     
-    a = KNSB_PROPS['a']
-    n = KNSB_PROPS['n']
+    # 연소속도 계산 (Burn rate)
     P_mpa = P_avg_pa / 1e6
     r = a * (P_mpa ** n) # [m/s]
     
-    rho = KNSB_PROPS['density']
-    Ab_req = mdot / (rho * r)
+    # 요구되는 연소 면적 계산 (Ab = mdot / (rho * r))
+    Ab_req = mdot / (prop_density * r)
     
     # --- 형상 치수 결정 ---
     D_grain = D_chamber - (2 * t_liner)
     if D_grain <= 0:
         return {"error": "지관 두께가 챔버 내경보다 큽니다. 설정을 확인해주세요."}
 
-    # Port Ratio >= 2.0 조건 적용
+    # Port Ratio >= 2.0 조건 적용 (초기 Core 직경 결정)
     min_port_ratio = 2.0
     d_core_min = np.sqrt((min_port_ratio * At * 4) / np.pi)
     d_core = d_core_min
     
-    # 길이 계산
+    # 길이 계산 (질량 기반)
     A_cross = (np.pi / 4) * (D_grain**2 - d_core**2)
-    L_grain = m_prop / (rho * A_cross)
+    L_grain = m_prop / (prop_density * A_cross)
     
     L_over_D = L_grain / D_grain
     
-    # 침식 연소 리스크 고려
+    # 침식 연소(Erosive Burning) 리스크 고려
     is_erosive_risk = False
     if L_over_D > 6.0:
         is_erosive_risk = True
@@ -53,7 +44,7 @@ def calculate_grain_geometry(D_chamber_mm, t_liner_mm, m_prop, At, tb, P_avg_pa,
         
         d_core = d_core_erosive
         A_cross = (np.pi / 4) * (D_grain**2 - d_core**2)
-        L_grain = m_prop / (rho * A_cross)
+        L_grain = m_prop / (prop_density * A_cross)
         L_over_D = L_grain / D_grain
 
     A_port = (np.pi / 4) * (d_core**2)
@@ -61,7 +52,6 @@ def calculate_grain_geometry(D_chamber_mm, t_liner_mm, m_prop, At, tb, P_avg_pa,
 
     return {
         "Grain_Type": grain_type,
-        "grain_type": grain_type,
         "D_grain_mm": D_grain * 1000,
         "d_core_mm": d_core * 1000,
         "L_grain_mm": L_grain * 1000,
@@ -70,8 +60,9 @@ def calculate_grain_geometry(D_chamber_mm, t_liner_mm, m_prop, At, tb, P_avg_pa,
         "Ab_req_m2": Ab_req,
         "r_mm_s": r * 1000,
         "is_erosive_risk": is_erosive_risk,
+        "rho_used": prop_density,
+        "c_star_used": c_star
     }
-
 # ==============================================================================
 # 시각화 관련 함수 (이전과 동일하지만 그대로 유지해야 함)
 # ==============================================================================
