@@ -3,25 +3,16 @@ import matplotlib.pyplot as plt
 from rocket_utils import calculate_nozzle_dimensions
 from flight_sim import simulate_flight
 
-import numpy as np
-import matplotlib.pyplot as plt
-from rocket_utils import calculate_nozzle_dimensions
-from flight_sim import simulate_flight
-
-def optimize_rocket_design(h_target, m0, mp, CD_A, tb, k, epsilon, P0, P_percentage, verbose=False):
+def optimize_rocket_design(h_target, m0, mp, CD_A, tb, k, epsilon, P0, P_percentage, c_star, verbose=False):
     """
-    Optimizes the rocket design to achieve a target altitude.
-    Returns a dictionary of design parameters and performance metrics.
+    목표 고도 달성을 위해 필요한 추력을 찾고, 물리적 Isp 기반 노즐 설계를 수행합니다.
     """
     if verbose:
-        print(f"목표 고도 {h_target}m 도달을 위한 추력 탐색 시작...")
-        print(f"연소 시간 {tb}s, 초기 질량 {m0}kg, 추진제 질량 {mp}kg 가정")
-        print("\n--- [계산 결과] ---")
-        print("-----------------------------------------------------")
+        print(f"목표 고도 {h_target}m 도달을 위한 추력 탐색 시작 (C*: {c_star} m/s)...")
 
-    # 2. 목표 고도를 위한 필요 추력(F_req) 최적화 (이분법)
-    F_min, F_max = 10.0, 300.0
-    tol = 0.01 # 허용 오차
+    # 1. 목표 고도를 위한 필요 추력(F_req) 최적화 (이분법)
+    F_min, F_max = 10.0, 500.0
+    tol = 0.01 
     iter_count = 0
     max_iter = 100
     
@@ -32,13 +23,10 @@ def optimize_rocket_design(h_target, m0, mp, CD_A, tb, k, epsilon, P0, P_percent
         iter_count += 1
         F_test = (F_min + F_max) / 2
         
-        # 시뮬레이션 실행
+        # 시뮬레이션 실행 (flight_sim.py 내부 시뮬레이션 로직 사용)
         t, y = simulate_flight(F_test, tb, m0, mp, CD_A)
-        h_max = np.max(y[0]) # 최고 고도
+        h_max = np.max(y[0]) 
         
-        if verbose:
-            print(f"반복 {iter_count}: 테스트 추력 = {F_test:.2f} N, 도달 고도 = {h_max:.2f} m")
-
         if h_max > h_target:
             F_max = F_test
         else:
@@ -49,14 +37,8 @@ def optimize_rocket_design(h_target, m0, mp, CD_A, tb, k, epsilon, P0, P_percent
             
     F_req = (F_min + F_max) / 2
     
-    if verbose:
-        print("-----------------------------------------------------")
-        print(f"도달 고도: {h_max:.2f} m")
-        print(f"최적화 완료! 필요 평균 추력: {F_req:.2f} N")
-        print(f"필요 총 충격량: {F_req * tb:.2f} Ns")
-    
-    # 3. 노즐 치수 역산
-    At, dt, Ae, de, CF = calculate_nozzle_dimensions(F_req, P0, P_percentage, epsilon, k)
+    # 2. 노즐 치수 및 물리적 Isp 역산
+    At, dt, Ae, de, CF, isp_phys = calculate_nozzle_dimensions(F_req, P0, P_percentage, epsilon, k, c_star)
     
     return {
         "F_req": F_req,
@@ -66,51 +48,51 @@ def optimize_rocket_design(h_target, m0, mp, CD_A, tb, k, epsilon, P0, P_percent
         "de": de,
         "At": At,
         "Ae": Ae,
-        "CF": CF
+        "CF": CF,
+        "Isp_phys": isp_phys
     }
 
 def main():
-    print("--- 로켓 노즐 설계 최적화 프로그램 ---")
+    print("--- [RocketDan2026] 로켓 노즐 설계 최적화 프로그램 ---")
     
-    # 1. 설계 목표 및 제약 조건
+    # 설계 목표 및 제약 조건
     h_target = 295.0     # [m] 목표 고도
     m0 = 3.75            # [kg] 초기 질량
     mp = 0.400           # [kg] 추진제 질량
     CD_A = 0.00264       # [m^2] 항력 계수 * 단면적
     tb = 3.05            # [s] 연소 시간
     
-    # 노즐/추진제 파라미터
-    k = 1.226            # 비열비    
+    # PROPEP3 기반 파라미터 적용
+    c_star = 909.8       # [m/s] 특성 속도 (2984.9 ft/s 변환값)
+    k = 1.1376           # 비열비 (Chamber CP/CV)
     epsilon = 7.414      # 노즐 팽창비
-    P0 = 3e6             # [Pa] 최대 압력
+    P0 = 3e6             # [Pa] 최대 압력 (3MPa)
     P_percentage = 0.615 # 평균 압력 비율
     
-    results = optimize_rocket_design(h_target, m0, mp, CD_A, tb, k, epsilon, P0, P_percentage, verbose=True)
+    results = optimize_rocket_design(h_target, m0, mp, CD_A, tb, k, epsilon, P0, P_percentage, c_star, verbose=True)
     
-    F_req = results["F_req"]
-    dt = results["dt"]
-    de = results["de"]
+    # 결과 출력
+    print("\n--- [설계 결과 리포트] ---")
+    print(f"1. 목표 고도 도달: {results['h_max']:.2f} m")
+    print(f"2. 필요 평균 추력: {results['F_req']:.2f} N")
+    print(f"3. 물리적 비추력 (Isp): {results['Isp_phys']:.2f} s")
+    print(f"4. 노즐 목 직경 (dt): {results['dt']*1000:.2f} mm (그래파이트 인서트)")
+    print(f"5. 노즐 출구 직경 (de): {results['de']*1000:.2f} mm (Al6061 하우징)")
     
-    print("\n--- [설계 결과] ---")
-    print(f"노즐 목 직경 (dt): {dt*1000:.3f} mm")
-    print(f"노즐 출구 직경 (de): {de*1000:.3f} mm")
-    
-    # 4. 결과 그래프 출력
-    # 최종 스펙으로 시뮬레이션 한 번 더 실행
-    t_final, y_final = simulate_flight(F_req, tb, m0, mp, CD_A)
+    # 결과 그래프 출력 (최종 스펙 시뮬레이션)
+    t_final, y_final = simulate_flight(results["F_req"], tb, m0, mp, CD_A)
     
     plt.figure(figsize=(10, 6))
     plt.subplot(2, 1, 1)
     plt.plot(t_final, y_final[0], label='Altitude')
-    plt.xlabel('Time (s)')
     plt.ylabel('Altitude (m)')
-    plt.title(f'Flight Simulation (Max Alt: {np.max(y_final[0]):.1f}m)')
+    plt.title(f'Flight Simulation (Apogee: {np.max(y_final[0]):.1f}m)')
     plt.grid(True)
     
     plt.subplot(2, 1, 2)
     plt.plot(t_final, y_final[1], color='orange', label='Velocity')
-    plt.xlabel('Time (s)')
     plt.ylabel('Velocity (m/s)')
+    plt.xlabel('Time (s)')
     plt.grid(True)
     
     plt.tight_layout()
