@@ -65,7 +65,7 @@ if run_button:
     try:
         # 1. 최적화 알고리즘 실행 (필요 추력 및 노즐 목 계산)
         # k_gamma를 k 인자로 전달
-        results = optimize_rocket_design(h_target, m0, mp, CD_A, tb, k_gamma, epsilon, P0, P_percentage)
+        results = optimize_rocket_design(h_target, m0, mp, CD_A, tb, k_gamma, epsilon, P0, P_percentage, c_star_input)
         
         F_avg = results["F_req"]
         h_max = results["h_max"]
