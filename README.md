@@ -170,7 +170,7 @@ computation.
 
 PARK SEONGJAE\
 RocketDan2026 Engine Team Leader\
-GitHub: @castl_marial
+GitHub: @castlmarial
 
 ------------------------------------------------------------------------
 
