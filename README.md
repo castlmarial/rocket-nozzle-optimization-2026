@@ -15,11 +15,11 @@ altitude --- while visualizing the full flight trajectory using RK45
 
 This project implements a full-stack rocket design workflow:
 
--   🎯 Target altitude input\
--   🔍 Required thrust optimization (Binary Search)\
--   🔥 Internal ballistics simulation\
--   🚀 Nozzle dimension calculation\
--   📈 RK45-based flight trajectory analysis\
+-   🎯 Target altitude input
+-   🔍 Required thrust optimization (Binary Search)
+-   🔥 Internal ballistics simulation
+-   🚀 Nozzle dimension calculation
+-   📈 RK45-based flight trajectory analysis
 -   🖥 Interactive Streamlit GUI
 
 The system performs **inverse rocket motor design**, meaning it starts
@@ -48,17 +48,17 @@ Including efficiency corrections for realistic performance.
 
 ### 🔵 BATES Grain Geometry Optimization
 
-Determines: - Core diameter\
-- Grain length\
+Determines: - Core diameter
+- Grain length
 - Required propellant mass
 
 Based on burn-time constraints and chamber pressure evolution.
 
 ### 📊 Interactive Visualization
 
-Streamlit-based interface with: - Altitude / Velocity plots\
-- Drag profile\
-- Chamber pressure curve\
+Streamlit-based interface with: - Altitude / Velocity plots
+- Drag profile
+- Chamber pressure curve
 - Grain cross-section visualization
 
 ------------------------------------------------------------------------
